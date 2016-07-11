@@ -1,14 +1,14 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace CacheAssociative
 {
-
     public class CacheSetAssociative<TKey, TResult>
     {
-        private Action<TKey> replacementAlgo;
         /// <summary>
         /// Thw order of the cache-sets is not important as long the Indexer can reach quickest to the set block. 
         /// Therefore I chose outer container as Dictionary whose ContainsKey operation is O(1). 
@@ -28,11 +28,16 @@ namespace CacheAssociative
         /// used by the Dictionary class. If you do not want to generally override GetHashCode and Equals on the class, or if you are unable to. 
         /// There is an overload of the Dictionary constructor in which you can provide the specific IEqualityComparer to use.
         /// </summary>
-        private Dictionary<TKey, List<TResult>> cache;
+        private readonly ConcurrentDictionary<TKey, List<TResult>> cache;
+        private int set_size;
+        private readonly ReaderWriterLockSlim mutateLock = new ReaderWriterLockSlim();
+        private Func<int> replaceAlgo;
 
-        public CacheSetAssociative(int set_size, Action<TKey> replacementAlgo ) 
+        public CacheSetAssociative(int set_size, Func<int> replaceAlgo ) 
         {
-            this.replacementAlgo = replacementAlgo;
+            cache = new ConcurrentDictionary<TKey, List<TResult>>();
+            this.set_size = set_size;
+            this.replaceAlgo = replaceAlgo;
         }
 
         /// <summary>
@@ -42,22 +47,25 @@ namespace CacheAssociative
         /// 2. fulfilled 
         /// 3. rejected.
         /// 
-        /// 1. The promise to get the Iten from the cache can be pending and while it is 
+        /// 1. The promise to get the Item from the cache can be pending and while it is 
         ///    pending the requester can do other jobs without getting blocked. 
         ///    It is for that reason that it is implemented as an async Task.
         ///
-        /// 2. The promise may be fulfilled either as 
-        ///   a) There is a cacheHit and also tag resolves to a valid cache-block in the set
+        /// 2. The promise may be fulfilled either of following 
+        ///   a) There is a cacheHit and also the tag resolves to a valid cache-block in the set
         ///   b) There is a cacheHit but the tag could not resolve to a valid cache-block.
-        ///      In that case we fallback and obtain value from memory say a database dip. 
-        ///      Next if the case-set is full then we apply a replacementAlgo 
-        ///      else we add a new slot to the cache-set
-        ///   c) The promise can be rejected because 
+        ///      In that case we fallback and obtain value from memory for example a database dip. 
+        ///   c) After fallback returns 
+        ///         (i)  if the cache-set is full then we apply a replacementAlgo 
+        ///         (ii) else we add a new slot to the cache-set
+        ///   d) There is a cacheMiss. The fallback returns and we allocate a new cacheset initialized with
+        ///      a new cache-block which has the first block as returned from the fallback
+        ///      
+        /// 3. The promise can be rejected because 
         ///          (i)  there was a cacheMiss and the fallback did not work say dataabase dip returned nothing or
         ///               the database dip returned an exception
         ///          (ii) there was a cacheHit but tag did not resolve a valid value and the fallback did not work 
-        ///               say dataabase dip returned nothing or
-        ///               the database dip returned an exception
+        ///               say dataabase dip returned nothing or the database dip returned an exception
         /// 
         /// Side Notes:
         /// This is based on the .then(success, fail) anti-pattern
@@ -68,9 +76,78 @@ namespace CacheAssociative
         /// </summary>
         /// <param name="key"></param>
         /// <returns></returns>
-        async Task<TResult> GetItem(TKey key, Func<TKey,TResult> fallback, Action err)
+        public async Task<TResult> GetItem(TKey key, Func<TResult,bool> ValidTag, Func<TResult> fallback)
         {
-            throw new NotImplementedException();
+            if (key == null) throw new ArgumentNullException("key", "key should be a non null value");
+            if (fallback == null) throw new ArgumentNullException("fallback", "fallback should be a non null func");
+
+            //cache hit conditons
+            List<TResult> cacheset;
+            if( cache.TryGetValue(key, out cacheset))
+            {
+                //See fullfilled condition 2 a)
+                mutateLock.EnterReadLock();
+                foreach (TResult cacheblock in cacheset)
+                    if (ValidTag(cacheblock)) return cacheblock;
+                mutateLock.ExitReadLock();
+
+                //See fullfilled condition 2 b). 
+                //Note spawning a new thread because fallback may have a higher payload since it makes expensive database calls for eg.
+                try
+                {
+                    TResult block = await Task.Factory.StartNew<TResult>(() => fallback());
+                    // Condition 2 c (i)
+                    var replace = false; //local variable is thread-safe
+                    var replaceIndex = -1; //local variable is thread safe
+                    mutateLock.EnterReadLock();
+                    replaceIndex = cacheset.Count();
+                    if (replaceIndex == set_size) replace = true;
+                    if (replace) replaceIndex = replaceAlgo();
+                    else replaceIndex = -1;
+                    mutateLock.ExitReadLock();
+
+                    mutateLock.TryEnterWriteLock(-1);
+                    if (replaceIndex == -1)
+                        cacheset.Add(block);//Condition 2 c (ii)
+                    else
+                        cacheset[replaceIndex] = block;//Condition 2 c (i)
+                    mutateLock.ExitWriteLock();
+
+                    return block;
+                }
+                catch(Exception e)
+                {
+                    //Also to be noted that the await may throw exception, cacheHit Condition 3 (ii) Promise Reject
+                    //We do not propagate exception (strictly .Net exceptions only) but errFunc will be invoked as per Promise A+ spec
+                    throw new Exception("There is a cacheHit. But promise rejected. Investigate Exception",e);
+                }
+            }
+            //cache miss conditions
+            else
+            {
+                //Get the item from memory and then add it to outer container 
+                try
+                {
+                    TResult block = await Task.Factory.StartNew(() => fallback());
+
+                    mutateLock.EnterWriteLock();
+                    cacheset = new List<TResult>(set_size);
+                    cacheset.Add(block);
+                    mutateLock.ExitWriteLock();
+
+                    if (!cache.TryAdd(key, cacheset))
+                        throw new Exception("Unable to add to the cache dictionary for unknown reason. Promise rejected");
+
+                    return block;
+
+                }
+                catch (Exception e)
+                {
+                    //Also to be noted that the await may throw exception, cacheHit Condition 3 (ii) Promise Reject
+                    //We do not propagate exception (strictly .Net exceptions only) but errFunc will be invoked as per Promise A+ spec
+                    throw new Exception("An exception occured in the cache miss condition. Investigate the exception",e);
+                }
+            }
         }
     }
 }

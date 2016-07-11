@@ -20,7 +20,7 @@ namespace CacheAssociative.Test
             var expectedUserData = new UserData { FirstName = "Arup", LastName = "Something" };
             var actualUserData = await testCache.GetItem(key: "Arup",ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
-                                    Thread.Sleep(200);
+                                    Task.Delay(200);
                                     return expectedUserData;
                                 });
             Assert.AreEqual(expectedUserData, actualUserData);
@@ -36,12 +36,12 @@ namespace CacheAssociative.Test
         {
             var testCache = new CacheSetAssociative<string, UserData>(set_size:3, replaceAlgo: () => { return 0; });
             var expectedUserData = new UserData { FirstName = "Arup", LastName = "Something" };
-            var actualUserData = await testCache.GetItem(key: "Arup",ValidTag: u => u.FirstName == "Ramesh",fallback: () => { Thread.Sleep(200); return expectedUserData; });
+            var actualUserData = await testCache.GetItem(key: "Arup",ValidTag: u => u.FirstName == "Ramesh",fallback: () => { Task.Delay(200); return expectedUserData; });
             Assert.AreEqual(expectedUserData, actualUserData);
 
             actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Arup", 
                 fallback: () => {
-                                    Thread.Sleep(200);
+                                    Task.Delay(200);
                                     return new UserData()
                                     {
                                         Comment = "Some Vague Data. For clarity only that the fallback won't be invoked because data from the cache would be picked up!!"
@@ -59,13 +59,13 @@ namespace CacheAssociative.Test
         {
             var testCache = new CacheSetAssociative<string, UserData>(set_size: 3, replaceAlgo: () => { return 0; });
             var expectedUserData = new UserData { FirstName = "Arup", LastName = "Something" };
-            var actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh", fallback: () => { Thread.Sleep(200); return expectedUserData; });
+            var actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh", fallback: () => { Task.Delay(200); return expectedUserData; });
             Assert.AreEqual(expectedUserData, actualUserData);
 
             //Fill second slot
             actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
-                    Thread.Sleep(200);
+                    Task.Delay(200);
                     return new UserData()
                     {
                         Comment = "Data to fit slot 1"
@@ -76,7 +76,7 @@ namespace CacheAssociative.Test
             //Check the second slot
             actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => !string.IsNullOrEmpty(u.Comment) && u.Comment.Contains("slot"),
                 fallback: () => {
-                    Thread.Sleep(200);
+                    Task.Delay(200);
                     return new UserData()
                     {
                         Comment = "Data never to be used!!"
@@ -97,13 +97,13 @@ namespace CacheAssociative.Test
         {
             var testCache = new CacheSetAssociative<string, UserData>(set_size: 3, replaceAlgo: () => { return 0; });
             var expectedUserData = new UserData { FirstName = "Arup", LastName = "Something" };
-            var actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh", fallback: () => { Thread.Sleep(200); return expectedUserData; });
+            var actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh", fallback: () => { Task.Delay(200); return expectedUserData; });
             Assert.AreEqual(expectedUserData, actualUserData);
 
             //Fill second slot
             actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
-                    Thread.Sleep(200);
+                    Task.Delay(200);
                     return new UserData()
                     {
                         Comment = "Data to fit slot 1"
@@ -114,7 +114,7 @@ namespace CacheAssociative.Test
             //Fill third slot
             actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
-                    Thread.Sleep(200);
+                    Task.Delay(200);
                     return new UserData()
                     {
                         Comment = "Data to fit slot 2"
@@ -125,7 +125,7 @@ namespace CacheAssociative.Test
             //Replace zeroth slot using LRU (replacement aka eviction Algo to be applied) 
             actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
-                    Thread.Sleep(200);
+                    Task.Delay(200);
                     return new UserData()
                     {
                         FirstName = "Arup",
@@ -137,7 +137,7 @@ namespace CacheAssociative.Test
             //Check that LRU (replacement aka eviction Algo to been applied in the previous step) in this current 3-way associative cache 
             actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Arup",
                 fallback: () => {
-                    Thread.Sleep(200);
+                    Task.Delay(200);
                     return new UserData()
                     {
                         Comment = "We do not expect this to be called anyway!!"
@@ -158,13 +158,13 @@ namespace CacheAssociative.Test
         {
             var testCache = new CacheSetAssociative<string, UserData>(set_size: 3, replaceAlgo: () => { return 2; });
             var expectedUserData = new UserData { FirstName = "Arup", LastName = "Something" };
-            var actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh", fallback: () => { Thread.Sleep(200); return expectedUserData; });
+            var actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh", fallback: () => { Task.Delay(200); return expectedUserData; });
             Assert.AreEqual(expectedUserData, actualUserData);
 
             //Fill second slot
             actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
-                    Thread.Sleep(200);
+                    Task.Delay(200);
                     return new UserData()
                     {
                         Comment = "Data to fit slot 1"
@@ -175,7 +175,7 @@ namespace CacheAssociative.Test
             //Fill third slot
             actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
-                    Thread.Sleep(200);
+                    Task.Delay(200);
                     return new UserData()
                     {
                         Comment = "Data to fit slot 2"
@@ -186,7 +186,7 @@ namespace CacheAssociative.Test
             //Replace third slot using MRU (replacement aka eviction Algo to be applied) 
             actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
-                    Thread.Sleep(200);
+                    Task.Delay(200);
                     return new UserData()
                     {
                         FirstName = "Arup",
@@ -198,7 +198,7 @@ namespace CacheAssociative.Test
             //Check that MRU (replacement aka eviction Algo to been applied in the previous step) in this current 3-way associative cache 
             actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => !string.IsNullOrEmpty(u.Comment) && u.Comment.Contains("replace"),
                 fallback: () => {
-                    Thread.Sleep(200);
+                    Task.Delay(200);
                     return new UserData()
                     {
                         Comment = "We do not expect this to be called anyway!!"

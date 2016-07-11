@@ -49,7 +49,6 @@ namespace CacheAssociative.Test
                                 });
             Assert.AreEqual(expectedUserData, actualUserData);
         }
-        /*
         /// <summary>
         /// 2 On CacheHit , ValidTag may be invalid. The promise may be still fullfilled using the fallback returned block 
         ///         (ii) if the cache slot is not full we add a new slot to the cache-set
@@ -65,9 +64,8 @@ namespace CacheAssociative.Test
 
             //Fill second slot
             actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Ramesh",
-                fallback: () =>
-                {
-                    Task.Delay(200);
+                fallback: () => {
+                    Thread.Sleep(200);
                     return new UserData()
                     {
                         Comment = "Data to fit slot 1"
@@ -75,23 +73,18 @@ namespace CacheAssociative.Test
                 });
             Assert.AreEqual("Data to fit slot 1", actualUserData.Comment);
 
-            //Now check that both the first slot and the second slot exists
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Aaravind", fallback: () => { Thread.Sleep(200); return expectedUserData; });
-            Assert.AreEqual(expectedUserData, actualUserData);
-
-
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => string.IsNullOrEmpty(u.Comment) && u.Comment.Contains("Slot"),
-                fallback: () =>
-                {
-                    Task.Delay(200);
+            //Check the second slot
+            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => !string.IsNullOrEmpty(u.Comment) && u.Comment.Contains("slot"),
+                fallback: () => {
+                    Thread.Sleep(200);
                     return new UserData()
                     {
-                        Comment = "Some invalid data"
+                        Comment = "Data never to be used!!"
                     };
                 });
             Assert.AreEqual("Data to fit slot 1", actualUserData.Comment);
         }
-        */
+        
         /// <summary>
         /// 2 On CacheHit , ValidTag may be invalid. The promise may be still fullfilled using the fallback returned block 
         ///         (i)  if the case-set is full then we apply a replacementAlgo also named as the evictionAlgorithm

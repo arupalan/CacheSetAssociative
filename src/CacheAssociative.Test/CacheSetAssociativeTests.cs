@@ -17,8 +17,8 @@ namespace CacheAssociative.Test
         public async Task OnCacheMissShouldfullfillPromisebyInitializingCacheSetFromMemoryAndAddingtoCache()
         {
             var testCache = new CacheSetAssociative<string, UserData>(set_size:3, replaceAlgo: () => { return 0; });
-            var expectedUserData = new UserData { FirstName = "Aaravind", LastName = "Something" };
-            var actualUserData = await testCache.GetItem(key: "Aaravind",ValidTag: u => u.FirstName == "Ramesh",
+            var expectedUserData = new UserData { FirstName = "Arup", LastName = "Something" };
+            var actualUserData = await testCache.GetItem(key: "Arup",ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
                                     Thread.Sleep(200);
                                     return expectedUserData;
@@ -35,11 +35,11 @@ namespace CacheAssociative.Test
         public async Task OnCacheHitAndTagValidShouldfullfillPromiseWithBlockFromCacheSet()
         {
             var testCache = new CacheSetAssociative<string, UserData>(set_size:3, replaceAlgo: () => { return 0; });
-            var expectedUserData = new UserData { FirstName = "Aaravind", LastName = "Something" };
-            var actualUserData = await testCache.GetItem(key: "Aaravind",ValidTag: u => u.FirstName == "Ramesh",fallback: () => { Thread.Sleep(200); return expectedUserData; });
+            var expectedUserData = new UserData { FirstName = "Arup", LastName = "Something" };
+            var actualUserData = await testCache.GetItem(key: "Arup",ValidTag: u => u.FirstName == "Ramesh",fallback: () => { Thread.Sleep(200); return expectedUserData; });
             Assert.AreEqual(expectedUserData, actualUserData);
 
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Aaravind", 
+            actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Arup", 
                 fallback: () => {
                                     Thread.Sleep(200);
                                     return new UserData()
@@ -58,12 +58,12 @@ namespace CacheAssociative.Test
         public async Task OnCacheHitAndTagInvalidShouldfullfillPromiseWithBlockFromFallbackAppendedToBackOfCacheSet()
         {
             var testCache = new CacheSetAssociative<string, UserData>(set_size: 3, replaceAlgo: () => { return 0; });
-            var expectedUserData = new UserData { FirstName = "Aaravind", LastName = "Something" };
-            var actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Ramesh", fallback: () => { Thread.Sleep(200); return expectedUserData; });
+            var expectedUserData = new UserData { FirstName = "Arup", LastName = "Something" };
+            var actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh", fallback: () => { Thread.Sleep(200); return expectedUserData; });
             Assert.AreEqual(expectedUserData, actualUserData);
 
             //Fill second slot
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Ramesh",
+            actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
                     Thread.Sleep(200);
                     return new UserData()
@@ -74,7 +74,7 @@ namespace CacheAssociative.Test
             Assert.AreEqual("Data to fit slot 1", actualUserData.Comment);
 
             //Check the second slot
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => !string.IsNullOrEmpty(u.Comment) && u.Comment.Contains("slot"),
+            actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => !string.IsNullOrEmpty(u.Comment) && u.Comment.Contains("slot"),
                 fallback: () => {
                     Thread.Sleep(200);
                     return new UserData()
@@ -96,12 +96,12 @@ namespace CacheAssociative.Test
         public async Task OnCacheHitAndTagInvalidShouldfullfillPromiseWithBlockFromFallbackAndApplyLRU()
         {
             var testCache = new CacheSetAssociative<string, UserData>(set_size: 3, replaceAlgo: () => { return 0; });
-            var expectedUserData = new UserData { FirstName = "Aaravind", LastName = "Something" };
-            var actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Ramesh", fallback: () => { Thread.Sleep(200); return expectedUserData; });
+            var expectedUserData = new UserData { FirstName = "Arup", LastName = "Something" };
+            var actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh", fallback: () => { Thread.Sleep(200); return expectedUserData; });
             Assert.AreEqual(expectedUserData, actualUserData);
 
             //Fill second slot
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Ramesh",
+            actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
                     Thread.Sleep(200);
                     return new UserData()
@@ -112,7 +112,7 @@ namespace CacheAssociative.Test
             Assert.AreEqual("Data to fit slot 1", actualUserData.Comment);
 
             //Fill third slot
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Ramesh",
+            actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
                     Thread.Sleep(200);
                     return new UserData()
@@ -123,19 +123,19 @@ namespace CacheAssociative.Test
             Assert.AreEqual("Data to fit slot 2", actualUserData.Comment);
 
             //Replace zeroth slot using LRU (replacement aka eviction Algo to be applied) 
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Ramesh",
+            actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
                     Thread.Sleep(200);
                     return new UserData()
                     {
-                        FirstName = "Aaravind",
+                        FirstName = "Arup",
                         Comment = "Data to replace slot 0"
                     };
                 });
             Assert.AreEqual("Data to replace slot 0", actualUserData.Comment);
 
             //Check that LRU (replacement aka eviction Algo to been applied in the previous step) in this current 3-way associative cache 
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Aaravind",
+            actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Arup",
                 fallback: () => {
                     Thread.Sleep(200);
                     return new UserData()
@@ -157,12 +157,12 @@ namespace CacheAssociative.Test
         public async Task OnCacheHitAndTagInvalidShouldfullfillPromiseWithBlockFromFallbackAndApplyMRU()
         {
             var testCache = new CacheSetAssociative<string, UserData>(set_size: 3, replaceAlgo: () => { return 2; });
-            var expectedUserData = new UserData { FirstName = "Aaravind", LastName = "Something" };
-            var actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Ramesh", fallback: () => { Thread.Sleep(200); return expectedUserData; });
+            var expectedUserData = new UserData { FirstName = "Arup", LastName = "Something" };
+            var actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh", fallback: () => { Thread.Sleep(200); return expectedUserData; });
             Assert.AreEqual(expectedUserData, actualUserData);
 
             //Fill second slot
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Ramesh",
+            actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
                     Thread.Sleep(200);
                     return new UserData()
@@ -173,7 +173,7 @@ namespace CacheAssociative.Test
             Assert.AreEqual("Data to fit slot 1", actualUserData.Comment);
 
             //Fill third slot
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Ramesh",
+            actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
                     Thread.Sleep(200);
                     return new UserData()
@@ -184,19 +184,19 @@ namespace CacheAssociative.Test
             Assert.AreEqual("Data to fit slot 2", actualUserData.Comment);
 
             //Replace third slot using MRU (replacement aka eviction Algo to be applied) 
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => u.FirstName == "Ramesh",
+            actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => u.FirstName == "Ramesh",
                 fallback: () => {
                     Thread.Sleep(200);
                     return new UserData()
                     {
-                        FirstName = "Aaravind",
+                        FirstName = "Arup",
                         Comment = "Data to replace slot 2"
                     };
                 });
             Assert.AreEqual("Data to replace slot 2", actualUserData.Comment);
 
             //Check that MRU (replacement aka eviction Algo to been applied in the previous step) in this current 3-way associative cache 
-            actualUserData = await testCache.GetItem(key: "Aaravind", ValidTag: u => !string.IsNullOrEmpty(u.Comment) && u.Comment.Contains("replace"),
+            actualUserData = await testCache.GetItem(key: "Arup", ValidTag: u => !string.IsNullOrEmpty(u.Comment) && u.Comment.Contains("replace"),
                 fallback: () => {
                     Thread.Sleep(200);
                     return new UserData()

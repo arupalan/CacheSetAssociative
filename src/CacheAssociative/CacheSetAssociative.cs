@@ -40,6 +40,11 @@ namespace CacheAssociative
             this.replaceAlgo = replaceAlgo;
         }
 
+        ~CacheSetAssociative()
+        {
+            if (mutateLock != null) mutateLock.Dispose();
+        }
+
         /// <summary>
         /// The GetItem is designed as a promise to retrieve the item from the cache.
         /// The promise can have three states
@@ -85,33 +90,51 @@ namespace CacheAssociative
             List<TResult> cacheset;
             if( cache.TryGetValue(key, out cacheset))
             {
-                //See fullfilled condition 2 a)
-                mutateLock.EnterReadLock();
-                foreach (TResult cacheblock in cacheset)
-                    if (ValidTag(cacheblock)) return cacheblock;
-                mutateLock.ExitReadLock();
-
-                //See fullfilled condition 2 b). 
-                //Note spawning a new thread because fallback may have a higher payload since it makes expensive database calls for eg.
                 try
                 {
+                    //See fullfilled condition 2 a)
+                    mutateLock.EnterReadLock();
+                    try
+                    {
+                        foreach (TResult cacheblock in cacheset)
+                            if (ValidTag(cacheblock)) return cacheblock;
+                    }
+                    finally
+                    {
+                        mutateLock.ExitReadLock();
+                    }
+
+                    //See fullfilled condition 2 b). 
+                    //Note spawning a new thread because fallback may have a higher payload since it makes expensive database calls for eg.
                     TResult block = await Task.Factory.StartNew<TResult>(() => fallback());
                     // Condition 2 c (i)
                     var replace = false; //local variable is thread-safe
                     var replaceIndex = -1; //local variable is thread safe
                     mutateLock.EnterReadLock();
-                    replaceIndex = cacheset.Count();
-                    if (replaceIndex == set_size) replace = true;
-                    if (replace) replaceIndex = replaceAlgo();
-                    else replaceIndex = -1;
-                    mutateLock.ExitReadLock();
+                    try
+                    {
+                        replaceIndex = cacheset.Count();
+                        if (replaceIndex == set_size) replace = true;
+                        if (replace) replaceIndex = replaceAlgo();
+                        else replaceIndex = -1;
+                    }
+                    finally
+                    {
+                        mutateLock.ExitReadLock();
+                    }
 
                     mutateLock.TryEnterWriteLock(-1);
-                    if (replaceIndex == -1)
-                        cacheset.Add(block);//Condition 2 c (ii)
-                    else
-                        cacheset[replaceIndex] = block;//Condition 2 c (i)
-                    mutateLock.ExitWriteLock();
+                    try
+                    {
+                        if (replaceIndex == -1)
+                            cacheset.Add(block);//Condition 2 c (ii)
+                        else
+                            cacheset[replaceIndex] = block;//Condition 2 c (i)
+                    }
+                    finally
+                    {
+                        mutateLock.ExitWriteLock();
+                    }
 
                     return block;
                 }
@@ -131,9 +154,15 @@ namespace CacheAssociative
                     TResult block = await Task.Factory.StartNew(() => fallback());
 
                     mutateLock.EnterWriteLock();
-                    cacheset = new List<TResult>(set_size);
-                    cacheset.Add(block);
-                    mutateLock.ExitWriteLock();
+                    try
+                    {
+                        cacheset = new List<TResult>(set_size);
+                        cacheset.Add(block);
+                    }
+                    finally
+                    {
+                        mutateLock.ExitWriteLock();
+                    }
 
                     if (!cache.TryAdd(key, cacheset))
                         throw new Exception("Unable to add to the cache dictionary for unknown reason. Promise rejected");
